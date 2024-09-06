@@ -5,10 +5,12 @@ import time
 import locale
 import sys
 from datetime import datetime
-import yfinance as yf
-from mnemonic import Mnemonic
 
-# Display title
+def import_conditional_modules():
+    import yfinance as yf
+    from mnemonic import Mnemonic
+    return yf, Mnemonic
+
 def display_titles():
     print("\n------------------------------------------------")
     print("         \033[1m##### Welcome to BitHub #####\033[0m\n")
@@ -26,6 +28,7 @@ def validate_hash(hash_string):
 
 def generate_seed_from_hash(hash_string, language="english", words=12):
     """Generates a BIP39 seed from SHA-256 hash with specified number of words"""
+    yf, Mnemonic = import_conditional_modules()
     mnemo = Mnemonic(language)
     entropy_length = 128 if words == 12 else 256  # 128 bits for 12 words, 256 bits for 24 words
     entropy = hash_string[:entropy_length // 4]  # Convert bits to hexadecimal characters
@@ -64,6 +67,7 @@ def get_exchange_rates():
         last_usd_brl = float(data_usd_brl["USDBRL"]["bid"])
 
         # Fetching the IBOV index - Yahoo Finance
+        yf, _ = import_conditional_modules()
         ibov = yf.Ticker("^BVSP")
         last_ibov = ibov.history(period="1d")["Close"].iloc[-1]
 
@@ -85,80 +89,63 @@ def seed_program():
     """Handles seed generation functionality"""
     try:
         while True:
-            # Step 1: Get input method (hash, string, or file)
             choice = input("\n1) Provide a SHA-256 HASH, a STRING or a TEXT FILE to generate the hash?\n(Press Enter for 'string', or type 'hash' or type 'file'[.txt]): ").strip().lower()
-
+            
             if choice == "string" or choice == "":
-                while True:
-                    input_string = input("\n2) Enter the string to generate the SHA-256 hash: ").strip()
-                    if input_string:
-                        hash_poem = generate_sha256_hash(input_string)
-                        print(f"\n\033[1m=> Generated SHA-256 hash: {hash_poem}\033[0m\n")
-                        break
-                    else:
-                        print("**Error: You must provide a non-empty string.")
+                input_string = input("\n2) Enter the string to generate the SHA-256 hash: ").strip()
+                if input_string:
+                    hash_poem = generate_sha256_hash(input_string)
+                    print(f"\n\033[1m=> Generated SHA-256 hash: {hash_poem}\033[0m\n")
+                else:
+                    print("**Error: You must provide a non-empty string.")
             elif choice == "hash":
-                while True:
-                    hash_poem = input("2) Enter the SHA-256 hash of your poem (64 characters): ").strip()
-                    if validate_hash(hash_poem):
-                        break
-                    else:
-                        print("**Error: The provided hash must be exactly 64 characters long. Please enter a valid SHA-256 hash.")
+                hash_poem = input("2) Enter the SHA-256 hash of your poem (64 characters): ").strip()
+                if validate_hash(hash_poem):
+                    pass
+                else:
+                    print("**Error: The provided hash must be exactly 64 characters long. Please enter a valid SHA-256 hash.")
             elif choice == "file":
-                while True:
-                    file_path = input("2) Enter the path to the text file (.txt): ").strip()
-                    if os.path.isfile(file_path) and file_path.endswith(".txt"):
-                        with open(file_path, "r", encoding="utf-8") as file:
-                            input_string = file.read().strip()
-                            hash_poem = generate_sha256_hash(input_string)
-                            print(f"\n\033[1m=> Generated SHA-256 hash from file: {hash_poem}\033[0m\n")
-                        break
-                    else:
-                        print("**Error: Invalid file path or file format. Please enter a valid .txt file path.")
+                file_path = input("2) Enter the path to the text file (.txt): ").strip()
+                if os.path.isfile(file_path) and file_path.endswith(".txt"):
+                    with open(file_path, "r", encoding="utf-8") as file:
+                        input_string = file.read().strip()
+                        hash_poem = generate_sha256_hash(input_string)
+                        print(f"\n\033[1m=> Generated SHA-256 hash from file: {hash_poem}\033[0m\n")
+                else:
+                    print("**Error: Invalid file path or file format. Please enter a valid .txt file path.")
             else:
                 print("**Error: Invalid choice. Please type 'string', 'hash', or 'file'.")
                 continue
 
-            # Step 2: Get the desired language
             valid_languages = ["english", "japanese", "korean", "spanish", "chinese", "french", "italian", "czech", "portuguese"]
-            while True:
-                language = input("3) Enter the desired language for the seed\n(Press Enter for 'english' or type japanese, korean, spanish, chinese, french, italian, czech or portuguese): ").strip().lower()
-                if language == "":
-                    language = "english"  # Default language
-                    print("")
-                if language in valid_languages:
-                    break
-                else:
-                    print("**Error: Invalid language. Please enter a valid language from the list.\n")
+            language = input("3) Enter the desired language for the seed\n(Press Enter for 'english' or type japanese, korean, spanish, chinese, french, italian, czech or portuguese): ").strip().lower()
+            if language == "":
+                language = "english"
+            if language not in valid_languages:
+                print("**Error: Invalid language. Please enter a valid language from the list.\n")
+                continue
 
-            # Step 3: Choose the number of words for the seed (12 or 24)
-            while True:
-                try:
-                    num_words = int(input("\033[1m4) How many words would you like for the seed? (12 or 24): \033[0m").strip())
-                    if num_words in [12, 24]:
-                        break
-                    else:
-                        print("**Error: Please enter '12' or '24'.")
-                except ValueError:
-                    print("**Error: Please enter a valid number (12 or 24).\n\n")
+            try:
+                num_words = int(input("\033[1m4) How many words would you like for the seed? (12 or 24): \033[0m").strip())
+                if num_words not in [12, 24]:
+                    print("**Error: Please enter '12' or '24'.")
+                    continue
+            except ValueError:
+                print("**Error: Please enter a valid number (12 or 24).\n\n")
+                continue
 
-            # Generate and format the seed
             seed_phrase = generate_seed_from_hash(hash_poem, language, num_words)
             formatted_seed = format_seed(seed_phrase, enumerate_words=True)
 
-            # Display the BIP39 seed
             print("\n\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m")
             print("\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m\n")
             print(formatted_seed, "\n")
 
-            # Step 4: Ask if want to save the seed to a file
             save_option = input("Would you like to save the seed to a file? (y/n): ").strip().lower()
-            if save_option == "y" or save_option == "yes":
+            if save_option in ["y", "yes"]:
                 try:
-                    # Use the user Documents directory
                     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
                     file_path = os.path.join(documents_path, "seed_bip39.txt")
-                    # Save seed without enumeration
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(format_seed(seed_phrase, enumerate_words=False))
                     print(f"\033[1m*Seed successfully saved to '{file_path}'\n\033[0m")
@@ -167,9 +154,8 @@ def seed_program():
             else:
                 print("\033[1m*Seed not saved.\n\033[0m")
             
-            # Step 5: Ask if want to generate another seed
             another = input("Would you like to generate another seed? (y/n): ").strip().lower()
-            if another != "y" and another != "yes":
+            if another not in ["y", "yes"]:
                 print("\nExiting the seed generation program...\n")
                 break
 
@@ -185,7 +171,6 @@ def quotation_program():
             price_btc_brl, price_btc_usd, price_usd_brl, price_ibov, price_sp500, price_nasdaq = get_exchange_rates()
 
             if price_btc_brl is not None and price_btc_usd is not None and price_usd_brl is not None and price_ibov is not None and price_sp500 is not None and price_nasdaq is not None:
-                # Formatting values according to the US standard
                 price_btc_brl_formatted = locale.format_string('%.2f', price_btc_brl, grouping=True)
                 price_btc_usd_formatted = locale.format_string('%.2f', price_btc_usd, grouping=True)
                 price_usd_brl_formatted = locale.format_string('%.2f', price_usd_brl, grouping=True)
@@ -193,7 +178,6 @@ def quotation_program():
                 price_sp500_formatted = locale.format_string('%.0f', price_sp500, grouping=True)
                 price_nasdaq_formatted = locale.format_string('%.0f', price_nasdaq, grouping=True)
 
-                # Getting the current time
                 current_time = datetime.now().strftime("%H:%M:%S")
 
                 print(f"\n[{current_time}]")
@@ -228,9 +212,8 @@ def main():
                 print("**Error: Invalid choice. Please enter '1' or '2'.")
                 continue
 
-            # Ask if want to return to main menu
             another = input("Would you like to return to the main menu? (y/n): ").strip().lower()
-            if another != "y" and another != "yes":
+            if another not in ["y", "yes"]:
                 print("\nExiting the program...\n")
                 break
 
