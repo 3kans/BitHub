@@ -140,14 +140,16 @@ def seed_program():
                     else:
                         print("**Error: Please enter '12' or '24'.")
                 except ValueError:
-                    print("**Error: Please enter a valid number (12 or 24).\n")
+                    print("**Error: Please enter a valid number (12 or 24).\n\n")
 
             # Generate and format the seed
             seed_phrase = generate_seed_from_hash(hash_poem, language, num_words)
             formatted_seed = format_seed(seed_phrase, enumerate_words=True)
 
-            # Display the formatted BIP39 seed
-            print("\n\033[1m=> Formatted BIP39 poetic seed:\033[0m\n", formatted_seed, "\n")
+            # Display the BIP39 seed
+            print("\n\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m")
+            print("\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m\n")
+            print(formatted_seed, "\n")
 
             # Step 4: Ask if want to save the seed to a file
             save_option = input("Would you like to save the seed to a file? (y/n): ").strip().lower()
