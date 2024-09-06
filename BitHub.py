@@ -8,7 +8,7 @@ from datetime import datetime
 import yfinance as yf
 from mnemonic import Mnemonic
 
-# Display titles for the combined program
+# Display title
 def display_titles():
     print("\n------------------------------------------------")
     print("         \033[1m##### Welcome to BitHub #####\033[0m\n")
@@ -17,22 +17,22 @@ def display_titles():
     print("*Press Ctrl+C at any time to exit the program.")
 
 def generate_sha256_hash(input_string):
-    """Generates a SHA-256 hash from an input string."""
+    """Generates a SHA-256 hash from a string"""
     return hashlib.sha256(input_string.encode()).hexdigest()
 
 def validate_hash(hash_string):
-    """Validates that the provided hash is 64 characters long."""
+    """Validates hash 64 characters"""
     return len(hash_string) == 64
 
 def generate_seed_from_hash(hash_string, language="english", words=12):
-    """Generates a BIP39 seed from a provided SHA-256 hash with the specified number of words."""
+    """Generates a BIP39 seed from SHA-256 hash with specified number of words"""
     mnemo = Mnemonic(language)
     entropy_length = 128 if words == 12 else 256  # 128 bits for 12 words, 256 bits for 24 words
     entropy = hash_string[:entropy_length // 4]  # Convert bits to hexadecimal characters
     return mnemo.to_mnemonic(bytes.fromhex(entropy))
 
 def format_seed(seed_phrase, enumerate_words=False, words_per_line=12):
-    """Formats the seed with or without enumeration, one word per line."""
+    """Seed enumeration / one per line"""
     seed_words = seed_phrase.split()
     if enumerate_words:
         formatted_seed = "\n".join([f"{i + 1}. {word}" for i, word in enumerate(seed_words)])
@@ -42,8 +42,8 @@ def format_seed(seed_phrase, enumerate_words=False, words_per_line=12):
 
 def get_exchange_rates():
     """
-    Fetches the current Bitcoin exchange rate in BRL and USD, the BRL to USD exchange rate,
-    the Bovespa index (IBOV), the S&P 500, and Nasdaq in real-time.
+    Fetches the current Bitcoin exchange in BRL and USD, the BRL to USD exchange,
+    Bovespa index (IBOV), S&P 500 and Nasdaq in real-time
     """
     url_btc_brl = "https://www.mercadobitcoin.net/api/BTC/ticker/"
     url_btc_usd = "https://api.coindesk.com/v1/bpi/currentprice.json"
@@ -63,7 +63,7 @@ def get_exchange_rates():
         last_btc_usd = float(data_btc_usd["bpi"]["USD"]["rate_float"])
         last_usd_brl = float(data_usd_brl["USDBRL"]["bid"])
 
-        # Fetching the IBOV index using Yahoo Finance
+        # Fetching the IBOV index - Yahoo Finance
         ibov = yf.Ticker("^BVSP")
         last_ibov = ibov.history(period="1d")["Close"].iloc[-1]
 
@@ -82,11 +82,11 @@ def get_exchange_rates():
         return None, None, None, None, None, None
 
 def seed_program():
-    """Handles the seed generation functionality."""
+    """Handles seed generation functionality"""
     try:
         while True:
             # Step 1: Get input method (hash, string, or file)
-            choice = input("\n1) Provide a SHA-256 HASH, a STRING, or a TEXT FILE to generate the hash?\n(Press Enter for 'string', or type 'hash' or type 'file'[.txt]): ").strip().lower()
+            choice = input("\n1) Provide a SHA-256 HASH, a STRING or a TEXT FILE to generate the hash?\n(Press Enter for 'string', or type 'hash' or type 'file'[.txt]): ").strip().lower()
 
             if choice == "string" or choice == "":
                 while True:
@@ -149,14 +149,14 @@ def seed_program():
             # Display the formatted BIP39 seed
             print("\n\033[1m=> Formatted BIP39 poetic seed:\033[0m\n", formatted_seed, "\n")
 
-            # Step 4: Ask the user if they want to save the seed to a file
+            # Step 4: Ask if want to save the seed to a file
             save_option = input("Would you like to save the seed to a file? (y/n): ").strip().lower()
             if save_option == "y" or save_option == "yes":
                 try:
-                    # Use the user's Documents directory
+                    # Use the user Documents directory
                     documents_path = os.path.join(os.path.expanduser("~"), "Documents")
                     file_path = os.path.join(documents_path, "seed_bip39.txt")
-                    # Save the seed without enumeration
+                    # Save seed without enumeration
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(format_seed(seed_phrase, enumerate_words=False))
                     print(f"\033[1m*Seed successfully saved to '{file_path}'\n\033[0m")
@@ -165,7 +165,7 @@ def seed_program():
             else:
                 print("\033[1m*Seed not saved.\n\033[0m")
             
-            # Step 5: Ask the user if they want to generate another seed
+            # Step 5: Ask if want to generate another seed
             another = input("Would you like to generate another seed? (y/n): ").strip().lower()
             if another != "y" and another != "yes":
                 print("\nExiting the seed generation program...\n")
@@ -226,7 +226,7 @@ def main():
                 print("**Error: Invalid choice. Please enter '1' or '2'.")
                 continue
 
-            # Ask the user if they want to return to the main menu
+            # Ask if want to return to main menu
             another = input("Would you like to return to the main menu? (y/n): ").strip().lower()
             if another != "y" and another != "yes":
                 print("\nExiting the program...\n")
