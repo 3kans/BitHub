@@ -1,1 +1,1 @@
-# BitX
+# BitHub
