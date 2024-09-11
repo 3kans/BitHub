@@ -3,7 +3,7 @@ import os
 import requests
 import time
 import locale
-import sys
+import math
 from datetime import datetime
 
 def import_conditional_modules():
@@ -19,15 +19,26 @@ def display_titles():
     print("*Press Ctrl+C at any time to exit the program.")
 
 def generate_sha256_hash(input_string):
-    """Generates a SHA-256 hash from a string"""
     return hashlib.sha256(input_string.encode()).hexdigest()
 
 def validate_hash(hash_string):
-    """Validates hash 64 characters"""
     return len(hash_string) == 64
 
+def calculate_entropy(input_string):
+    probability_distribution = {char: input_string.count(char) / len(input_string) for char in set(input_string)}
+    entropy = -sum(prob * math.log2(prob) for prob in probability_distribution.values())
+    return entropy
+
+def grade_entropy(entropy_value):
+
+    if entropy_value < 3.0:
+        return "Low"
+    elif 3.0 <= entropy_value < 4.0:
+        return "Medium"
+    else:
+        return "High"
+
 def generate_seed_from_hash(hash_string, language="english", words=12):
-    """Generates a BIP39 seed from SHA-256 hash with specified number of words"""
     yf, Mnemonic = import_conditional_modules()
     mnemo = Mnemonic(language)
     entropy_length = 128 if words == 12 else 256  # 128 bits for 12 words, 256 bits for 24 words
@@ -35,7 +46,6 @@ def generate_seed_from_hash(hash_string, language="english", words=12):
     return mnemo.to_mnemonic(bytes.fromhex(entropy))
 
 def format_seed(seed_phrase, enumerate_words=False, words_per_line=12):
-    """Seed enumeration / one per line"""
     seed_words = seed_phrase.split()
     if enumerate_words:
         formatted_seed = "\n".join([f"{i + 1}. {word}" for i, word in enumerate(seed_words)])
@@ -43,78 +53,49 @@ def format_seed(seed_phrase, enumerate_words=False, words_per_line=12):
         formatted_seed = "\n".join(seed_words)
     return formatted_seed
 
-def get_exchange_rates():
-    """
-    Fetches the current Bitcoin exchange in BRL and USD, the BRL to USD exchange,
-    Bovespa index (IBOV), S&P 500 and Nasdaq in real-time
-    """
-    url_btc_brl = "https://www.mercadobitcoin.net/api/BTC/ticker/"
-    url_btc_usd = "https://api.coindesk.com/v1/bpi/currentprice.json"
-    url_usd_brl = "https://economia.awesomeapi.com.br/json/last/USD-BRL"
-
-    try:
-        # Requesting data from Bitcoin and USD APIs
-        response_btc_brl = requests.get(url_btc_brl)
-        response_btc_usd = requests.get(url_btc_usd)
-        response_usd_brl = requests.get(url_usd_brl)
-
-        data_btc_brl = response_btc_brl.json()
-        data_btc_usd = response_btc_usd.json()
-        data_usd_brl = response_usd_brl.json()
-
-        last_btc_brl = float(data_btc_brl["ticker"]["last"])
-        last_btc_usd = float(data_btc_usd["bpi"]["USD"]["rate_float"])
-        last_usd_brl = float(data_usd_brl["USDBRL"]["bid"])
-
-        # Fetching the IBOV index - Yahoo Finance
-        yf, _ = import_conditional_modules()
-        ibov = yf.Ticker("^BVSP")
-        last_ibov = ibov.history(period="1d")["Close"].iloc[-1]
-
-        # Fetching the S&P 500 index
-        sp500 = yf.Ticker("^GSPC")
-        last_sp500 = sp500.history(period="1d")["Close"].iloc[-1]
-
-        # Fetching the Nasdaq index
-        nasdaq = yf.Ticker("^IXIC")
-        last_nasdaq = nasdaq.history(period="1d")["Close"].iloc[-1]
-
-        return last_btc_brl, last_btc_usd, last_usd_brl, last_ibov, last_sp500, last_nasdaq
-
-    except Exception as e:
-        print(f"Error fetching data: {e}")
-        return None, None, None, None, None, None
-
 def seed_program():
-    """Handles seed generation functionality"""
     try:
         while True:
+            hash_poem = None  # Inicializar 'hash_poem' como None
             choice = input("\n1) Provide a SHA-256 HASH, a STRING or a TEXT FILE to generate the hash?\n(Press Enter for 'string', or type 'hash' or type 'file'[.txt]): ").strip().lower()
             
             if choice == "string" or choice == "":
                 input_string = input("\n2) Enter the string to generate the SHA-256 hash: ").strip()
                 if input_string:
                     hash_poem = generate_sha256_hash(input_string)
-                    print(f"\n\033[1m=> Generated SHA-256 hash: {hash_poem}\033[0m\n")
+                    entropy = calculate_entropy(input_string)
+                    entropy_grade = grade_entropy(entropy)
+                    print(f"\n\033[1m=> Generated SHA-256 hash: {hash_poem}\033[0m")
+                    print(f"\n\033[1m=> Entropy of input: {entropy:.2f} ({entropy_grade})\033[0m\n")
                 else:
                     print("**Error: You must provide a non-empty string.")
             elif choice == "hash":
-                hash_poem = input("2) Enter the SHA-256 hash of your poem (64 characters): ").strip()
-                if validate_hash(hash_poem):
-                    pass
+                hash_input = input("2) Enter the SHA-256 hash of your poem (64 characters): ").strip()
+                if validate_hash(hash_input):
+                    hash_poem = hash_input
+                    entropy = calculate_entropy(hash_poem)
+                    entropy_grade = grade_entropy(entropy)
+                    print(f"\n\033[1m=> Entropy of hash: {entropy:.2f} ({entropy_grade})\033[0m\n")
                 else:
                     print("**Error: The provided hash must be exactly 64 characters long. Please enter a valid SHA-256 hash.")
             elif choice == "file":
-                file_path = input("2) Enter the path to the text file (.txt): ").strip()
+                file_path = input("\n2) Enter the path to the text file (.txt): ").strip()
                 if os.path.isfile(file_path) and file_path.endswith(".txt"):
                     with open(file_path, "r", encoding="utf-8") as file:
                         input_string = file.read().strip()
                         hash_poem = generate_sha256_hash(input_string)
-                        print(f"\n\033[1m=> Generated SHA-256 hash from file: {hash_poem}\033[0m\n")
+                        entropy = calculate_entropy(input_string)
+                        entropy_grade = grade_entropy(entropy)
+                        print(f"\n\033[1m=> Generated SHA-256 hash from file: {hash_poem}\033[0m")
+                        print(f"\n\033[1m=> Entropy of text / Hash: {entropy:.2f} ({entropy_grade})\033[0m\n")
                 else:
                     print("**Error: Invalid file path or file format. Please enter a valid .txt file path.")
             else:
                 print("**Error: Invalid choice. Please type 'string', 'hash', or 'file'.")
+                continue
+
+            if hash_poem is None:
+                print("*Hash not generated. Please try again.")
                 continue
 
             valid_languages = ["english", "japanese", "korean", "spanish", "chinese", "french", "italian", "czech", "portuguese"]
@@ -125,20 +106,22 @@ def seed_program():
                 print("**Error: Invalid language. Please enter a valid language from the list.\n")
                 continue
 
-            try:
-                num_words = int(input("\033[1m4) How many words would you like for the seed? (12 or 24): \033[0m").strip())
-                if num_words not in [12, 24]:
-                    print("**Error: Please enter '12' or '24'.")
-                    continue
-            except ValueError:
-                print("**Error: Please enter a valid number (12 or 24).\n\n")
-                continue
-
+            while True:
+                try:
+                    num_words = int(input("\n\033[1m4) How many words would you like for the seed? (12 or 24): \033[0m").strip())
+                    if num_words in [12, 24]:
+                        break
+                    else:
+                        print("**Error: Please enter a valid number (12 or 24).")
+                except ValueError:
+                    print("**Error: Please enter a valid number (12 ou 24).")
+            
             seed_phrase = generate_seed_from_hash(hash_poem, language, num_words)
             formatted_seed = format_seed(seed_phrase, enumerate_words=True)
 
             print("\n\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m")
             print("\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m\n")
+            print(f"\033[1m=> Entropy of text / Hash: {entropy:.2f} ({entropy_grade})\033[0m\n")
             print(formatted_seed, "\n")
 
             save_option = input("Would you like to save the seed to a file? (y/n): ").strip().lower()
@@ -163,7 +146,6 @@ def seed_program():
         print("\n\nExiting the seed generation program...\n")
 
 def quotation_program():
-    """Handles the real-time quotations functionality."""
     locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 
     try:
@@ -188,10 +170,49 @@ def quotation_program():
                 print(f"Nasdaq: {price_nasdaq_formatted} points")
                 print(f"--------------------------------------------------")
 
-            time.sleep(15)  # Updates every 15 seconds
+            time.sleep(15)  # every 15 seconds
 
     except KeyboardInterrupt:
         print("\nExiting the real-time quotations program...\n")
+
+def get_exchange_rates():
+
+    url_btc_brl = "https://www.mercadobitcoin.net/api/BTC/ticker/"
+    url_btc_usd = "https://api.coindesk.com/v1/bpi/currentprice.json"
+    url_usd_brl = "https://economia.awesomeapi.com.br/json/last/USD-BRL"
+
+    try:
+        # Bitcoin and USD APIs
+        response_btc_brl = requests.get(url_btc_brl)
+        response_btc_usd = requests.get(url_btc_usd)
+        response_usd_brl = requests.get(url_usd_brl)
+
+        data_btc_brl = response_btc_brl.json()
+        data_btc_usd = response_btc_usd.json()
+        data_usd_brl = response_usd_brl.json()
+
+        last_btc_brl = float(data_btc_brl["ticker"]["last"])
+        last_btc_usd = float(data_btc_usd["bpi"]["USD"]["rate_float"])
+        last_usd_brl = float(data_usd_brl["USDBRL"]["bid"])
+
+        # IBOV index - Yahoo Finance
+        yf, _ = import_conditional_modules()
+        ibov = yf.Ticker("^BVSP")
+        last_ibov = ibov.history(period="1d")["Close"].iloc[-1]
+
+        # S&P 500 index
+        sp500 = yf.Ticker("^GSPC")
+        last_sp500 = sp500.history(period="1d")["Close"].iloc[-1]
+
+        # Nasdaq index
+        nasdaq = yf.Ticker("^IXIC")
+        last_nasdaq = nasdaq.history(period="1d")["Close"].iloc[-1]
+
+        return last_btc_brl, last_btc_usd, last_usd_brl, last_ibov, last_sp500, last_nasdaq
+
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        return None, None, None, None, None, None
 
 def main():
     display_titles()
