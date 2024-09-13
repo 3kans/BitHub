@@ -1,15 +1,14 @@
 import hashlib
 import os
-import requests
-import time
 import locale
 import math
 from datetime import datetime
+import asyncio
+import aiohttp
 
 def import_conditional_modules():
-    import yfinance as yf
     from mnemonic import Mnemonic
-    return yf, Mnemonic
+    return Mnemonic
 
 def display_titles():
     print("\n------------------------------------------------")
@@ -30,7 +29,6 @@ def calculate_entropy(input_string):
     return entropy
 
 def grade_entropy(entropy_value):
-
     if entropy_value < 3.0:
         return "Low"
     elif 3.0 <= entropy_value < 4.0:
@@ -39,13 +37,13 @@ def grade_entropy(entropy_value):
         return "High"
 
 def generate_seed_from_hash(hash_string, language="english", words=12):
-    yf, Mnemonic = import_conditional_modules()
+    Mnemonic = import_conditional_modules()
     mnemo = Mnemonic(language)
-    entropy_length = 128 if words == 12 else 256  # 128 bits for 12 words, 256 bits for 24 words
-    entropy = hash_string[:entropy_length // 4]  # Convert bits to hexadecimal characters
+    entropy_length = 128 if words == 12 else 256
+    entropy = hash_string[:entropy_length // 4]
     return mnemo.to_mnemonic(bytes.fromhex(entropy))
 
-def format_seed(seed_phrase, enumerate_words=False, words_per_line=12):
+def format_seed(seed_phrase, enumerate_words=False):
     seed_words = seed_phrase.split()
     if enumerate_words:
         formatted_seed = "\n".join([f"{i + 1}. {word}" for i, word in enumerate(seed_words)])
@@ -56,7 +54,7 @@ def format_seed(seed_phrase, enumerate_words=False, words_per_line=12):
 def seed_program():
     try:
         while True:
-            hash_poem = None  # Inicializar 'hash_poem' como None
+            hash_poem = None  
             choice = input("\n1) Provide a SHA-256 HASH, a STRING or a TEXT FILE to generate the hash?\n(Press Enter for 'string', or type 'hash' or type 'file'[.txt]): ").strip().lower()
             
             if choice == "string" or choice == "":
@@ -121,7 +119,6 @@ def seed_program():
 
             print("\n\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m")
             print("\033[1m------ BACKUP Bitcoin Seed Phrase! ------\033[0m\n")
-            print(f"\033[1m=> Entropy of text / Hash: {entropy:.2f} ({entropy_grade})\033[0m\n")
             print(formatted_seed, "\n")
 
             save_option = input("Would you like to save the seed to a file? (y/n): ").strip().lower()
@@ -145,78 +142,70 @@ def seed_program():
     except KeyboardInterrupt:
         print("\n\nExiting the seed generation program...\n")
 
-def quotation_program():
-    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-
+async def fetch_data(session, url):
     try:
-        while True:
-            price_btc_brl, price_btc_usd, price_usd_brl, price_ibov, price_sp500, price_nasdaq = get_exchange_rates()
+        async with session.get(url) as response:
+            return await response.json()
+    except Exception as e:
+        print(f"Error fetching data from {url}: {e}")
+        return None
 
-            if price_btc_brl is not None and price_btc_usd is not None and price_usd_brl is not None and price_ibov is not None and price_sp500 is not None and price_nasdaq is not None:
-                price_btc_brl_formatted = locale.format_string('%.2f', price_btc_brl, grouping=True)
-                price_btc_usd_formatted = locale.format_string('%.2f', price_btc_usd, grouping=True)
-                price_usd_brl_formatted = locale.format_string('%.2f', price_usd_brl, grouping=True)
-                price_ibov_formatted = locale.format_string('%.0f', price_ibov, grouping=True)
-                price_sp500_formatted = locale.format_string('%.0f', price_sp500, grouping=True)
-                price_nasdaq_formatted = locale.format_string('%.0f', price_nasdaq, grouping=True)
-
-                current_time = datetime.now().strftime("%H:%M:%S")
-
-                print(f"\n[{current_time}]")
-                print(f"Bitcoin price: BRL {price_btc_brl_formatted} | USD {price_btc_usd_formatted}")
-                print(f"BRL to USD exchange rate: BRL 1.00 = USD {price_usd_brl_formatted}")
-                print(f"Bovespa index (IBOV): {price_ibov_formatted} points")
-                print(f"S&P 500: {price_sp500_formatted} points")
-                print(f"Nasdaq: {price_nasdaq_formatted} points")
-                print(f"--------------------------------------------------")
-
-            time.sleep(15)  # every 15 seconds
-
-    except KeyboardInterrupt:
-        print("\nExiting the real-time quotations program...\n")
-
-def get_exchange_rates():
-
+async def get_exchange_rates_async():
     url_btc_brl = "https://www.mercadobitcoin.net/api/BTC/ticker/"
     url_btc_usd = "https://api.coindesk.com/v1/bpi/currentprice.json"
     url_usd_brl = "https://economia.awesomeapi.com.br/json/last/USD-BRL"
 
-    try:
-        # Bitcoin and USD APIs
-        response_btc_brl = requests.get(url_btc_brl)
-        response_btc_usd = requests.get(url_btc_usd)
-        response_usd_brl = requests.get(url_usd_brl)
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            fetch_data(session, url_btc_brl),
+            fetch_data(session, url_btc_usd),
+            fetch_data(session, url_usd_brl),
+        ]
+        results = await asyncio.gather(*tasks)
 
-        data_btc_brl = response_btc_brl.json()
-        data_btc_usd = response_btc_usd.json()
-        data_usd_brl = response_usd_brl.json()
-
-        last_btc_brl = float(data_btc_brl["ticker"]["last"])
-        last_btc_usd = float(data_btc_usd["bpi"]["USD"]["rate_float"])
-        last_usd_brl = float(data_usd_brl["USDBRL"]["bid"])
-
-        # IBOV index - Yahoo Finance
-        yf, _ = import_conditional_modules()
-        ibov = yf.Ticker("^BVSP")
-        last_ibov = ibov.history(period="1d")["Close"].iloc[-1]
-
-        # S&P 500 index
-        sp500 = yf.Ticker("^GSPC")
-        last_sp500 = sp500.history(period="1d")["Close"].iloc[-1]
-
-        # Nasdaq index
-        nasdaq = yf.Ticker("^IXIC")
-        last_nasdaq = nasdaq.history(period="1d")["Close"].iloc[-1]
-
-        return last_btc_brl, last_btc_usd, last_usd_brl, last_ibov, last_sp500, last_nasdaq
-
-    except Exception as e:
-        print(f"Error fetching data: {e}")
+    if any(result is None for result in results):
         return None, None, None, None, None, None
+    
+    data_btc_brl, data_btc_usd, data_usd_brl = results
+
+    last_btc_brl = float(data_btc_brl["ticker"]["last"])
+    last_btc_usd = float(data_btc_usd["bpi"]["USD"]["rate_float"])
+    last_usd_brl = float(data_usd_brl["USDBRL"]["bid"])
+
+    from yfinance import Ticker
+    ibov = Ticker("^BVSP")
+    sp500 = Ticker("^GSPC")
+    nasdaq = Ticker("^IXIC")
+
+    last_ibov = ibov.history(period="1d")["Close"].iloc[-1]
+    last_sp500 = sp500.history(period="1d")["Close"].iloc[-1]
+    last_nasdaq = nasdaq.history(period="1d")["Close"].iloc[-1]
+
+    return last_btc_brl, last_btc_usd, last_usd_brl, last_ibov, last_sp500, last_nasdaq
+
+async def quotation_program_async():
+    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+    try:
+        while True:
+            rates = await get_exchange_rates_async()
+            if rates:
+                price_btc_brl, price_btc_usd, price_usd_brl, price_ibov, price_sp500, price_nasdaq = rates
+
+                current_time = datetime.now().strftime("%H:%M:%S")
+                print(f"\n[{current_time}]")
+                print(f"Bitcoin price: BRL {price_btc_brl:.2f} | USD {price_btc_usd:.2f}")
+                print(f"BRL to USD exchange rate: BRL 1.00 = USD {price_usd_brl:.2f}")
+                print(f"Bovespa index (IBOV): {price_ibov:.0f} points")
+                print(f"S&P 500: {price_sp500:.0f} points")
+                print(f"Nasdaq: {price_nasdaq:.0f} points")
+                print(f"--------------------------------------------------")
+
+            await asyncio.sleep(15)  # Atualiza a cada 15 segundos
+    except KeyboardInterrupt:
+        print("\nExiting the real-time quotations program...\n")
 
 def main():
     display_titles()
-
     try:
         while True:
             print("\n\033[1m1. Seed Phrase Generator\033[0m")
@@ -228,7 +217,7 @@ def main():
                 seed_program()
             elif choice == "2":
                 print("\n\033[1m*Real-time Quotation\033[0m")
-                quotation_program()
+                asyncio.run(quotation_program_async())
             else:
                 print("**Error: Invalid choice. Please enter '1' or '2'.")
                 continue
