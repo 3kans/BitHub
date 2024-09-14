@@ -13,7 +13,7 @@ def import_conditional_modules():
 def display_titles():
     print("\n------------------------------------------------")
     print("         \033[1m##### Welcome to BitHub #####\033[0m\n")
-    print("                \033[1mv1.0 - by snak3 \033[0m")
+    print("                \033[1mv1.0 - by 3kans \033[0m")
     print("------------------------------------------------\n")
     print("*Press Ctrl+C at any time to exit the program.")
 
