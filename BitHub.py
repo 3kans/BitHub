@@ -183,12 +183,26 @@ async def get_exchange_rates_async():
 
     return last_btc_brl, last_btc_usd, last_usd_brl, last_ibov, last_sp500, last_nasdaq
 
+async def spinner(stop_event):
+    spinner_chars = ['|', '/', '-', '\\']
+    idx = 0
+    while not stop_event.is_set():
+        print(f"\rLoading... {spinner_chars[idx % len(spinner_chars)]}", end='', flush=True)
+        idx += 1
+        await asyncio.sleep(0.1)
+    print('\r' + ' ' * 20 + '\r', end='')  # Limpa a linha após o spinner
+
 async def quotation_program_async():
     locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
     try:
         while True:
+            stop_spinner = asyncio.Event()
+            spinner_task = asyncio.create_task(spinner(stop_spinner))
             rates = await get_exchange_rates_async()
-            if rates:
+            stop_spinner.set()
+            await spinner_task
+
+            if rates and all(rate is not None for rate in rates):
                 price_btc_brl, price_btc_usd, price_usd_brl, price_ibov, price_sp500, price_nasdaq = rates
 
                 current_time = datetime.now().strftime("%H:%M:%S")
@@ -199,6 +213,8 @@ async def quotation_program_async():
                 print(f"S&P 500: {price_sp500:.0f} points")
                 print(f"Nasdaq: {price_nasdaq:.0f} points")
                 print(f"--------------------------------------------------")
+            else:
+                print("\n**Error: Failed to fetch some or all exchange rates.")
 
             await asyncio.sleep(15)  # Atualiza a cada 15 segundos
     except KeyboardInterrupt:
